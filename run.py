@@ -15,9 +15,12 @@ def runserver():
     run()
 
 @cli.command()
-def wrapping():
-    ...
+def sendemail():
+    import src.utils
 
-# Entry point
+@cli.command()
+def wrapping(): ...
+
+
 if __name__ == "__main__":
     cli()
