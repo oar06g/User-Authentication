@@ -6,20 +6,21 @@ def cli():
     pass
 
 @cli.command()
-def migrate():
+def runserver(): run()
+
+@cli.command()
+@click.option(
+    "--fullsetup",
+    is_flag=True,
+    default=False,
+    help="If full setup use true or update database."
+)
+def setup(fullsetup): 
     import scripts.migrate
-    scripts.migrate.migrate()
-
-@cli.command()
-def runserver():
-    run()
-
-@cli.command()
-def sendemail():
-    import src.utils
-
-@cli.command()
-def wrapping(): ...
+    if fullsetup:
+        scripts.migrate.setup(True)
+    else:
+        scripts.migrate.setup()
 
 
 if __name__ == "__main__":

@@ -121,3 +121,6 @@ class EmailTemplate:
 
 # send_email(TO_EMAIL, SUBJECT, BODY)
 
+def is_token_expired(exp_timestamp: int):
+    import time
+    return time.time() > exp_timestamp

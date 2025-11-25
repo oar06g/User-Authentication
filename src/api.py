@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.future import select
+import time
 
 # ################# IMPORT CUSTOM MODULES #################
 import src.models as models
@@ -32,7 +33,6 @@ class APIV1:
                 "fullname": user.fullname,
                 "username": user.username,
                 "email": user.email,
-                "token": user.token,
                 "verify": user.verified,
                 "role": user.role
             }
@@ -53,23 +53,12 @@ class APIV1:
             if existing_email:
                 raise HTTPException(status_code=400, detail="Email already exists")
             
-            # --- Token Generation with Uniqueness Check ---
-            token = None
-            while True:
-                generated_token = utils.generate_secure_token()
-                existing_token_user = db.execute(
-                    select(models.User).where(models.User.token == generated_token)
-                ).scalar_one_or_none()
-                if not existing_token_user:
-                    token = generated_token
-                    break
-            
+                        
             new_user = models.User(
                 fullname=user.full_name,
                 username=user.username,
                 password=hash_password(user.password),
-                email=user.email,
-                token=token
+                email=user.email
             )
             db.add(new_user)
             db.commit()
@@ -80,18 +69,47 @@ class APIV1:
                 "fullname": new_user.fullname,
                 "username": new_user.username,
                 "email": new_user.email,
-                "token": new_user.token,
                 "verify": new_user.verified,
                 "role": new_user.role
             }
 
         @self.router.post("/verify-email", response_class=HTMLResponse)
-        def verify_email_send(user_id):...
+        def verify_email_send(email, db: Session = Depends(get_db)):
+            user = db.execute(
+                select(models.User).where(models.User.email == email)
+            ).scalar_one_or_none()
+
+            if not user:
+                raise HTTPException(status_code=404, detail="Email not found")
+            token = utils.generate_secure_token()
+            token_exp = int(time.time()) + (24 * 3600)
+
+            verification = models.EmailVerifications(
+                user_id=user.id,
+                token=token,
+                token_exp=token_exp,
+                is_used=False
+            )
+            db.add(verification)
+            db.commit()
+
+            verify_link = f"http://localhost:8000/verify-email/{token}"
+
+            subject, body = utils.EmailTemplate.email_template(
+                fullname=user.fullname,
+                verify_link=verify_link
+            )
+
+            utils.send_email(user.email, subject, body)
+            
+            html_content = "<h3>Verification email sent!</h3>"
+            return HTMLResponse(content=html_content)
 
         @self.router.get("/verify-email/{token}", response_class=HTMLResponse)
         def verify_email(token: str, db: Session = Depends(get_db)):
             email_verification = db.execute(
-                select(models.EmailVerifications).where(models.EmailVerifications.token == token)
+                select(models.EmailVerifications)
+                .where(models.EmailVerifications.token == token)
             ).scalar_one_or_none()
             if not email_verification:
                 raise HTTPException(status_code=404, detail="Invalid verification token")
@@ -107,4 +125,5 @@ class APIV1:
             email_verification.is_used = True
             
             db.commit()
-            return HTMLResponse(content="<h1>Email verified successfully!</h1>", status_code=200)
+
+            return HTMLResponse(content="<h1>Email verified successfully!</h1>")
