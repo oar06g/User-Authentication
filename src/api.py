@@ -1,5 +1,5 @@
 # ################# IMPORT MODULES #################
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Form
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.future import select
@@ -93,9 +93,9 @@ class APIV1:
             db.add(verification)
             db.commit()
 
-            verify_link = f"http://localhost:8000/verify-email/{token}"
+            verify_link = f"http://localhost:8000/api/v1/verify-email/{token}"
 
-            subject, body = utils.EmailTemplate.email_template(
+            subject, body = utils.EmailTemplate.verify_email_template(
                 fullname=user.fullname,
                 verify_link=verify_link
             )
@@ -127,3 +127,99 @@ class APIV1:
             db.commit()
 
             return HTMLResponse(content="<h1>Email verified successfully!</h1>")
+        
+        # -----------------
+        @self.router.post("/password-reset", response_class=HTMLResponse)
+        def reset_password_send(email: str, db: Session = Depends(get_db)):
+            user = db.execute(
+                select(models.User).where(models.User.email == email)
+            ).scalar_one_or_none()
+
+            if not user:
+                raise HTTPException(status_code=404, detail="Email not found")
+
+            token = utils.generate_secure_token()
+            token_exp = int(time.time()) + (24 * 3600)
+
+            reset_entry = models.PasswordReset(
+                user_id=user.id,
+                token=token,
+                token_exp=token_exp,
+                is_used=False
+            )
+            db.add(reset_entry)
+            db.commit()
+
+            reset_link = f"http://localhost:8000/api/v1/password-reset/{token}"
+
+            subject, body = utils.EmailTemplate.reset_password_template(reset_link)
+            utils.send_email(user.email, subject, body)
+
+            return HTMLResponse("<h3>Password reset link sent to your email.</h3>")
+
+
+        @self.router.get("/password-reset/{token}", response_class=HTMLResponse)
+        def reset_password_form(token: str, db: Session = Depends(get_db)):
+            record = db.execute(
+                select(models.PasswordReset)
+                .where(models.PasswordReset.token == token)
+            ).scalar_one_or_none()
+
+            if not record:
+                raise HTTPException(status_code=404, detail="Invalid token")
+            if record.is_used:
+                raise HTTPException(status_code=400, detail="Token already used")
+            if utils.is_token_expired(record.token_exp):
+                raise HTTPException(status_code=400, detail="Token expired")
+            html = f"""
+            <html>
+                <body>
+                    <h2>Reset Password</h2>
+                    <form action="/api/v1/password-reset/{token}" method="post">
+                        <label>New Password:</label><br>
+                        <input type="password" name="password" required><br><br>
+
+                        <label>Confirm Password:</label><br>
+                        <input type="password" name="confirm_password" required><br><br>
+
+                        <button type="submit">Change Password</button>
+                    </form>
+                </body>
+            </html>
+            """
+            return HTMLResponse(html)
+
+        @self.router.post("/password-reset/{token}", response_class=HTMLResponse)
+        def reset_password_apply(
+            token: str,
+            password: str = Form(...),
+            confirm_password: str = Form(...),
+            db: Session = Depends(get_db)
+        ):
+            if password != confirm_password:
+                return HTMLResponse("<h3>Passwords do not match!</h3>", status_code=400)
+
+            record = db.execute(
+                select(models.PasswordReset)
+                .where(models.PasswordReset.token == token)
+            ).scalar_one_or_none()
+
+            if not record:
+                raise HTTPException(status_code=404, detail="Invalid token")
+
+            if record.is_used:
+                raise HTTPException(status_code=400, detail="Token already used")
+
+            if utils.is_token_expired(record.token_exp):
+                raise HTTPException(status_code=400, detail="Token expired")
+
+            user = db.execute(
+                select(models.User).where(models.User.id == record.user_id)
+            ).scalar_one()
+
+            user.password = hash_password(password)
+
+            record.is_used = True
+            db.commit()
+
+            return HTMLResponse("<h1>Password changed successfully!</h1>")

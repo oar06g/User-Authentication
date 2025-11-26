@@ -94,7 +94,7 @@ def send_email(to_email: str, subject: str, body: str):
 
 class EmailTemplate:
     @classmethod
-    def email_template(self, fullname: str, verify_link: str) -> str:
+    def verify_email_template(self, fullname: str, verify_link: str) -> str:
         email_title = "Email Verification"
         email_body = f"""<html>
   <body style="font-family: Arial, sans-serif; line-height: 1.6;">
@@ -114,13 +114,79 @@ class EmailTemplate:
 </html>
 """
         return email_title, email_body
+    @classmethod
+    def reset_password_template(self, verify_link: str) -> str:
+        email_title = "Password Reset"
+        email_body = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Password Reset</title>
+</head>
+<body style="margin:0; padding:0; background:#f5f5f5; font-family:Arial, Helvetica, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5; padding:20px 0;">
+    <tr>
+      <td align="center">
 
+        <!-- Container -->
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:8px; overflow:hidden; border:1px solid #e0e0e0;">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background:#0057ff; color:#ffffff; padding:20px; text-align:center; font-size:24px; font-weight:bold;">
+              Reset Your Password
+            </td>
+          </tr>
 
-# TO_EMAIL = "omar20729193@gmail.com"
-# SUBJECT, BODY = EmailTemplate.email_template("Omar", verify_link="https://google.com")
+          <!-- Content -->
+          <tr>
+            <td style="padding:30px; color:#333333; font-size:16px; line-height:24px;">
+              <p>Hello,</p>
+              <p>A request was received to change the password for your account.</p>
 
-# send_email(TO_EMAIL, SUBJECT, BODY)
+              <p style="margin-top:30px; text-align:center;">
+                <a href="{verify_link}"
+                   style="background:#0057ff; 
+                          color:#ffffff; 
+                          text-decoration:none; 
+                          padding:14px 24px; 
+                          font-size:16px; 
+                          border-radius:4px; 
+                          display:inline-block;">
+                  Reset Password
+                </a>
+              </p>
 
+              <p style="margin-top:25px;">
+                If you did not request this change, you can safely ignore this email.
+              </p>
+
+              <p style="margin-top:20px;">
+                Thanks,<br/>
+                The {CONFIG.get("APP", "app_name")} Team
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f0f0f0; color:#888888; text-align:center; padding:15px; font-size:12px;">
+              © 2025 {CONFIG.get("APP", "app_name")}. All rights reserved.
+            </td>
+          </tr>
+
+        </table>
+        <!-- End Container -->
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+"""
+        return email_title, email_body
+    
 def is_token_expired(exp_timestamp: int):
     import time
     return time.time() > exp_timestamp
