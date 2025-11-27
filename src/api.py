@@ -1,6 +1,8 @@
 # ################# IMPORT MODULES #################
-from fastapi import APIRouter, Depends, HTTPException, Form
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, HTTPException, Form, Request, Cookie
+from fastapi.templating import Jinja2Templates
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.future import select
 import time
@@ -11,67 +13,154 @@ import src.schemas as schemas
 import src.utils as utils
 from src.encryption import hash_password, verify_password
 from src.config import get_db
+from src.auth import create_jwt_access_token, decode_token, JWTError
 
+templates = Jinja2Templates(directory="templates")
 
 class APIV1:
     def __init__(self):
         self.router = APIRouter(prefix="/api/v1")
     
-        @self.router.post("/login")
-        def login(
-            info: schemas.UserLogin, db: Session = Depends(get_db)
-        ):
-            user = db.execute(
-                select(models.User).where(models.User.username == info.username)
-            ).scalar_one_or_none()
-            if not user or not verify_password(info.password, user.password):
-                raise HTTPException(status_code=401, detail="Invalid username or password")
+        @self.router.get("/login", response_class=HTMLResponse)
+        def login_html(request: Request):
+            return templates.TemplateResponse("login.html", {"request": request})
             
-            return {
-                "message": "Login successful", 
+        @self.router.post("/login", response_class=HTMLResponse)
+        def login(
+            request: Request,
+            username: str = Form(...),
+            password: str = Form(...),
+            db: Session = Depends(get_db)
+        ):
+            
+            user = db.execute(
+                select(models.User).where(models.User.username == username)
+            ).scalar_one_or_none()
+
+            if not user or not verify_password(password, user.password):
+                return templates.TemplateResponse(
+                    "login.html",
+                    {
+                        "request": request,
+                        "error": "Invalid username or password"
+                    },
+                    status_code=401
+                )
+            token = create_jwt_access_token({
                 "user_id": user.id,
                 "fullname": user.fullname,
-                "username": user.username,
                 "email": user.email,
-                "verify": user.verified,
+                "username": user.username,
                 "role": user.role
-            }
+            })
+
+            response = RedirectResponse(url="/api/v1/profile", status_code=303)
+            response.set_cookie(
+                key="access_token",
+                value=token,
+                httponly=True,
+                secure=True,
+                samesite="lax",
+                max_age=86400
+            )
+            return response
+
+        @self.router.get("/logout")
+        def logout():
+            response = RedirectResponse(url="/api/v1/login")
+            response.delete_cookie("access_token")
+            return response
+
+        @self.router.get("/register", response_class=HTMLResponse)
+        def register_html(request: Request):
+            return templates.TemplateResponse("register.html", {"request": request})
 
         @self.router.post("/register")
         def register(
-            user: schemas.UserCreate, db: Session = Depends(get_db)
-        ): 
+            request: Request,
+            fullname: str = Form(...),
+            username: str = Form(...),
+            email: str = Form(...),
+            password: str = Form(...),
+            confirm_password: str = Form(...),
+            db: Session = Depends(get_db)
+        ):
+
+            # --- Validation: Password match ---
+            if password != confirm_password:
+                return templates.TemplateResponse(
+                    "register.html",
+                    {
+                        "request": request,
+                        "error": "Passwords do not match",
+                        "fullname": fullname,
+                        "username": username,
+                        "email": email
+                    },
+                    status_code=400
+                )
+
             # --- Validation: Check for existing username or email ---
             existing_user = db.execute(
-                select(models.User).where(models.User.username == user.username)
+                select(models.User).where(models.User.username == username)
             ).scalar_one_or_none()
             existing_email = db.execute(
-                select(models.User).where(models.User.email == user.email)
+                select(models.User).where(models.User.email == email)
             ).scalar_one_or_none()
+
             if existing_user:
-                raise HTTPException(status_code=400, detail="Username already exists")
+                return templates.TemplateResponse(
+                    "register.html",
+                    {
+                        "request": request,
+                        "error": "Username already exists",
+                        "fullname": fullname,
+                        "email": email
+                    },
+                    status_code=400
+                )
             if existing_email:
-                raise HTTPException(status_code=400, detail="Email already exists")
-            
-                        
+                return templates.TemplateResponse(
+                    "register.html",
+                    {
+                        "request": request,
+                        "error": "Email already exists",
+                        "fullname": fullname,
+                        "username": username
+                    },
+                    status_code=400
+                )
+
+            # --- Create new user ---
             new_user = models.User(
-                fullname=user.full_name,
-                username=user.username,
-                password=hash_password(user.password),
-                email=user.email
+                fullname=fullname,
+                username=username,
+                password=hash_password(password),
+                email=email
             )
+
             db.add(new_user)
             db.commit()
             db.refresh(new_user)
-            return {
-                "message": "User registered successfully", 
+
+            token = create_jwt_access_token({
                 "user_id": new_user.id,
                 "fullname": new_user.fullname,
-                "username": new_user.username,
                 "email": new_user.email,
-                "verify": new_user.verified,
+                "username": new_user.username,
                 "role": new_user.role
-            }
+            })
+
+            response = RedirectResponse(url="/api/v1/profile", status_code=302)
+            response.set_cookie(
+                key="access_token",
+                value=token,
+                httponly=True,
+                secure=True,
+                samesite="lax",
+                max_age=86400
+            )
+            return response
 
         @self.router.post("/verify-email", response_class=HTMLResponse)
         def verify_email_send(email, db: Session = Depends(get_db)):
@@ -223,3 +312,22 @@ class APIV1:
             db.commit()
 
             return HTMLResponse("<h1>Password changed successfully!</h1>")
+        
+        @self.router.get("/profile", response_class=HTMLResponse)
+        def profile(request: Request, access_token: str = Cookie(None)):
+
+            if not access_token: return RedirectResponse(url="/api/v1/login")
+            
+            try: payload = decode_token(access_token)
+            except JWTError: return RedirectResponse(url="/api/v1/login")
+
+            return templates.TemplateResponse(
+                "profile.html", 
+                {
+                    "request": request,
+                    "fullname": payload.get("fullname"),
+                    "email": payload.get("email"),
+                    "username": payload.get("username"),
+                    "role": payload.get("role"),
+                }
+            )

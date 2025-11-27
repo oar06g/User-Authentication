@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Register</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body {
+      background: linear-gradient(135deg, #2575fc, #6a11cb);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .register-card {
+      background: #ffffff;
+      padding: 2rem;
+      border-radius: 1.5rem;
+      width: 100%;
+      max-width: 450px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+      animation: fadeIn 0.8s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .register-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 1.5rem;
+      color: #333;
+    }
+
+    .form-control {
+      border-radius: 0.8rem;
+      padding: 0.8rem;
+    }
+
+    .btn-register {
+      background: #2575fc;
+      border: none;
+      padding: 0.8rem;
+      font-size: 1rem;
+      border-radius: 0.8rem;
+      width: 100%;
+      color: #fff;
+      transition: 0.3s;
+    }
+
+    .btn-register:hover {
+      background: #1f63d1;
+    }
+
+    .extra-links {
+      text-align: center;
+      margin-top: 1rem;
+    }
+
+    .extra-links a {
+      color: #2575fc;
+      text-decoration: none;
+    }
+
+    .extra-links a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+<div class="register-card">
+        <div class="register-title">Create Account</div>
+
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% endif %}
+
+        <form action="/api/v1/register" method="post">
+            <div class="mb-3">
+                <label for="fullname" class="form-label">Full Name</label>
+                <input type="text" name="fullname" class="form-control" id="fullname" 
+                    placeholder="Enter your full name" required value="{{ fullname or '' }}">
+            </div>
+
+            <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" name="username" class="form-control" id="username" 
+                    placeholder="Choose a username" required value="{{ username or '' }}">
+            </div>
+
+            <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" name="email" class="form-control" id="email" 
+                    placeholder="Enter your email" required value="{{ email or '' }}">
+            </div>
+
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" id="password" 
+                    placeholder="Enter password" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="confirm_password" class="form-label">Confirm Password</label>
+                <input type="password" name="confirm_password" class="form-control" id="confirm_password" 
+                    placeholder="Confirm password" required>
+            </div>
+
+            <button type="submit" class="btn btn-register mt-2">Register</button>
+
+            <div class="extra-links">
+                <p>Already have an account? <a href="/api/v1/login">Login</a></p>
+            </div>
+        </form>
+    </div>
+
+</body>
+</html>

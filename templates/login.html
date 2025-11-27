@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <style>
+        body {
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .login-card {
+            background: #ffffff;
+            padding: 2rem;
+            border-radius: 1.5rem;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            animation: fadeIn 0.8s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .login-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: #333;
+        }
+
+        .form-control {
+            border-radius: 0.8rem;
+            padding: 0.8rem;
+        }
+
+        .btn-login {
+            background: #6a11cb;
+            border: none;
+            padding: 0.8rem;
+            font-size: 1rem;
+            border-radius: 0.8rem;
+            width: 100%;
+            color: #fff;
+            transition: 0.3s;
+        }
+
+        .btn-login:hover { background: #5911b0; }
+
+        .extra-links {
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .extra-links a {
+            color: #6a11cb;
+            text-decoration: none;
+        }
+
+        .extra-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="login-card">
+
+        {% if error %}
+        <div class="alert alert-danger text-center">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <div class="login-title">Welcome Back</div>
+
+        <form action="/api/v1/login" method="post">
+            <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" name="username" class="form-control" id="username"
+                    placeholder="Enter your username" required />
+            </div>
+
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" id="password"
+                    placeholder="Enter your password" required />
+            </div>
+
+            <button type="submit" class="btn btn-login mt-2">Login</button>
+
+            <div class="extra-links">
+                <p><a href="#">Forgot Password?</a></p>
+                <p>Don't have an account? <a href="/api/v1/register">Sign Up</a></p>
+            </div>
+        </form>
+    </div>
+
+</body>
+
+</html>

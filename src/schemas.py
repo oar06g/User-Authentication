@@ -1,6 +1,4 @@
 from pydantic import BaseModel, EmailStr, Field
-from datetime import date
-from typing import Optional
 
 class UserCreate(BaseModel):
     full_name: str = Field(
@@ -37,3 +35,7 @@ class UserLogin(BaseModel):
         ...,
         description="The password of the user.",
     )
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
