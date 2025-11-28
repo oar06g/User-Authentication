@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Email Verified</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body {
+      background: linear-gradient(135deg, #6a11cb, #2575fc);
+      height: 100vh;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .verify-complete-card {
+      background: #fff;
+      width: 100%;
+      max-width: 450px;
+      padding: 2.5rem;
+      border-radius: 1.5rem;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+      animation: fadeIn 0.8s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .check-icon {
+      font-size: 4rem;
+      color: #28a745;
+      margin-bottom: 1rem;
+    }
+
+    .verify-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 0.5rem;
+    }
+
+    .verify-text {
+      color: #555;
+      margin-bottom: 1.5rem;
+      font-size: 1rem;
+    }
+
+    .btn-continue {
+      background: #2575fc;
+      color: #fff;
+      border-radius: 0.8rem;
+      padding: 0.8rem;
+      width: 100%;
+      border: none;
+      font-size: 1rem;
+      transition: 0.3s;
+    }
+
+    .btn-continue:hover {
+      background: #1f63d1;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="verify-complete-card">
+    <div class="check-icon">✔️</div>
+    <div class="verify-title">Email Verified</div>
+    <p class="verify-text">Your email has been successfully verified. You can now continue to your account.</p>
+
+    <a href="/api/v1/profile" class="btn btn-continue">Continue</a>
+  </div>
+
+</body>
+</html>

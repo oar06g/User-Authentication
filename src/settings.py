@@ -5,14 +5,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- Database config ---
-# MYSQL_USER = os.getenv("MYSQL_USER")
-# MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
-# MYSQL_HOST = os.getenv("MYSQL_HOST")
-# MYSQL_PORT = os.getenv("MYSQL_PORT")
-# MYSQL_DB_USER_AUTHDB = os.getenv("MYSQL_DB_USER_AUTHDB")
-# MYSQL_URL = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB_USER_AUTHDB}"
+MYSQL_USER = os.getenv("MYSQL_USER")
+MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+MYSQL_HOST = os.getenv("MYSQL_HOST")
+MYSQL_PORT = os.getenv("MYSQL_PORT")
+MYSQL_DB_USER_AUTHDB = os.getenv("MYSQL_DB_USER_AUTHDB")
+# DB_URL = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB_USER_AUTHDB}"
 
-SQLITE3_URL = 'sqlite:///db_user_auth.db'
+DB_URL = 'sqlite:///db_user_auth.db'
 
 
 # --- Send email config ---

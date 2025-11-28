@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session, scoped_session
 from typing import Generator
 
-from src.settings import SQLITE3_URL
+from src.settings import DB_URL
 
 class Database:
     _engine = None
@@ -12,7 +12,7 @@ class Database:
     def get_engine(cls):
         if cls._engine is None:
             cls._engine = create_engine(
-                SQLITE3_URL,
+                DB_URL,
                 pool_pre_ping=True,
                 pool_recycle=280,
                 echo=True

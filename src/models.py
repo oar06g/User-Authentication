@@ -14,6 +14,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False)
     verified = Column(Boolean, default=False)
     role = Column(String(50), default='user')
+    transaction_token = Column(String(150), unique=True, nullable=False)
 
     email_verifications = relationship(
         "EmailVerifications",

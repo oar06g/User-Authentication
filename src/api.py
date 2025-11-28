@@ -130,13 +130,23 @@ class APIV1:
                     },
                     status_code=400
                 )
+            
+            while True:
+                trans_token = utils.generate_secure_token()
+                existing_token = db.execute(
+                    select(models.User).where(models.User.transaction_token == trans_token)
+                ).scalar_one_or_none()
+                if not existing_token:
+                    break
+                
 
             # --- Create new user ---
             new_user = models.User(
                 fullname=fullname,
                 username=username,
                 password=hash_password(password),
-                email=email
+                email=email,
+                transaction_token=trans_token
             )
 
             db.add(new_user)
@@ -144,14 +154,11 @@ class APIV1:
             db.refresh(new_user)
 
             token = create_jwt_access_token({
-                "user_id": new_user.id,
-                "fullname": new_user.fullname,
-                "email": new_user.email,
-                "username": new_user.username,
-                "role": new_user.role
+                "transtoken": new_user.transaction_token,
+                "email": new_user.email
             })
 
-            response = RedirectResponse(url="/api/v1/profile", status_code=302)
+            response = RedirectResponse(url="/api/v1/verify-email", status_code=302)
             response.set_cookie(
                 key="access_token",
                 value=token,
@@ -160,16 +167,37 @@ class APIV1:
                 samesite="lax",
                 max_age=86400
             )
+            print(response.headers)
             return response
 
-        @self.router.post("/verify-email", response_class=HTMLResponse)
-        def verify_email_send(email, db: Session = Depends(get_db)):
+
+
+
+
+
+
+
+        @self.router.api_route("/verify-email", methods=["GET", "POST"], response_class=HTMLResponse)
+        def verify_email_send(
+            request: Request,
+            access_token: str = Cookie(None), 
+            db: Session = Depends(get_db)
+        ):
+            if request.method == "GET":
+                return templates.TemplateResponse("verification_link.html", {"request": request})
+            
+            try:
+                payload = decode_token(access_token)
+                email = payload.get("email")
+            except JWTError: return RedirectResponse(url="/api/v1/login")
+            
             user = db.execute(
                 select(models.User).where(models.User.email == email)
             ).scalar_one_or_none()
 
             if not user:
                 raise HTTPException(status_code=404, detail="Email not found")
+            
             token = utils.generate_secure_token()
             token_exp = int(time.time()) + (24 * 3600)
 
@@ -184,18 +212,20 @@ class APIV1:
 
             verify_link = f"http://localhost:8000/api/v1/verify-email/{token}"
 
-            subject, body = utils.EmailTemplate.verify_email_template(
-                fullname=user.fullname,
-                verify_link=verify_link
-            )
-
+            subject, body = utils.EmailTemplate.verify_email_template(fullname=user.fullname,verify_link=verify_link)
             utils.send_email(user.email, subject, body)
             
-            html_content = "<h3>Verification email sent!</h3>"
-            return HTMLResponse(content=html_content)
+            return templates.TemplateResponse(
+                "verification_link.html",
+                {"request": request, "email": email}
+            )
 
         @self.router.get("/verify-email/{token}", response_class=HTMLResponse)
-        def verify_email(token: str, db: Session = Depends(get_db)):
+        def verify_email(
+            request: Request,
+            token: str, 
+            db: Session = Depends(get_db)
+        ):
             email_verification = db.execute(
                 select(models.EmailVerifications)
                 .where(models.EmailVerifications.token == token)
@@ -215,7 +245,10 @@ class APIV1:
             
             db.commit()
 
-            return HTMLResponse(content="<h1>Email verified successfully!</h1>")
+            return templates.TemplateResponse(
+                "email_verified.html",
+                {"request": request, "email": user.email}
+            )
         
         # -----------------
         @self.router.post("/password-reset", response_class=HTMLResponse)
@@ -314,20 +347,27 @@ class APIV1:
             return HTMLResponse("<h1>Password changed successfully!</h1>")
         
         @self.router.get("/profile", response_class=HTMLResponse)
-        def profile(request: Request, access_token: str = Cookie(None)):
+        def profile(request: Request, access_token: str = Cookie(None), db: Session = Depends(get_db)):
 
             if not access_token: return RedirectResponse(url="/api/v1/login")
             
-            try: payload = decode_token(access_token)
+            try: 
+                payload = decode_token(access_token)
+                trans_token = payload.get("transtoken")
+                existing_token = db.execute(
+                    select(models.User).where(models.User.transaction_token == trans_token)
+                ).scalar_one_or_none()
+                if not existing_token: return RedirectResponse(url="/api/v1/logout")
             except JWTError: return RedirectResponse(url="/api/v1/login")
 
             return templates.TemplateResponse(
                 "profile.html", 
                 {
                     "request": request,
-                    "fullname": payload.get("fullname"),
-                    "email": payload.get("email"),
-                    "username": payload.get("username"),
-                    "role": payload.get("role"),
+                    "fullname": existing_token.fullname,
+                    "email": existing_token.email,
+                    "username": existing_token.username,
+                    "role": existing_token.role,
+                    "verified": existing_token.verified,
                 }
             )
