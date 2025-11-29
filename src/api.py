@@ -1,7 +1,6 @@
 # ################# IMPORT MODULES #################
 from fastapi import APIRouter, Depends, HTTPException, Form, Request, Cookie
 from fastapi.templating import Jinja2Templates
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.future import select
@@ -9,7 +8,6 @@ import time
 
 # ################# IMPORT CUSTOM MODULES #################
 import src.models as models
-import src.schemas as schemas
 import src.utils as utils
 from src.encryption import hash_password, verify_password
 from src.config import get_db
@@ -343,7 +341,7 @@ class APIV1:
                 ).scalar_one_or_none()
                 if not existing_token: return RedirectResponse(url="/api/v1/logout")
             except JWTError: return RedirectResponse(url="/api/v1/login")
-
+            
             return templates.TemplateResponse(
                 "profile.html", 
                 {
@@ -352,6 +350,6 @@ class APIV1:
                     "email": existing_token.email,
                     "username": existing_token.username,
                     "role": existing_token.role,
-                    "verified": existing_token.verified,
+                    "verified": existing_token.verified
                 }
             )
