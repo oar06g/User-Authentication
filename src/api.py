@@ -85,140 +85,124 @@ class APIV1:
             confirm_password: str = Form(...),
             db: Session = Depends(get_db)
         ):
-
-            # --- Validation: Password match ---
-            if password != confirm_password:
-                return templates.TemplateResponse(
-                    "register.html",
-                    {
-                        "request": request,
-                        "error": "Passwords do not match",
-                        "fullname": fullname,
-                        "username": username,
-                        "email": email
-                    },
-                    status_code=400
-                )
-
-            # --- Validation: Check for existing username or email ---
-            existing_user = db.execute(
-                select(models.User).where(models.User.username == username)
-            ).scalar_one_or_none()
-            existing_email = db.execute(
-                select(models.User).where(models.User.email == email)
-            ).scalar_one_or_none()
-
-            if existing_user:
-                return templates.TemplateResponse(
-                    "register.html",
-                    {
-                        "request": request,
-                        "error": "Username already exists",
-                        "fullname": fullname,
-                        "email": email
-                    },
-                    status_code=400
-                )
-            if existing_email:
-                return templates.TemplateResponse(
-                    "register.html",
-                    {
-                        "request": request,
-                        "error": "Email already exists",
-                        "fullname": fullname,
-                        "username": username
-                    },
-                    status_code=400
-                )
-            
-            while True:
-                trans_token = utils.generate_secure_token()
-                existing_token = db.execute(
-                    select(models.User).where(models.User.transaction_token == trans_token)
-                ).scalar_one_or_none()
-                if not existing_token:
-                    break
-                
-
-            # --- Create new user ---
-            new_user = models.User(
-                fullname=fullname,
-                username=username,
-                password=hash_password(password),
-                email=email,
-                transaction_token=trans_token
-            )
-
-            db.add(new_user)
-            db.commit()
-            db.refresh(new_user)
-
-            token = create_jwt_access_token({
-                "transtoken": new_user.transaction_token,
-                "email": new_user.email
-            })
-
-            response = RedirectResponse(url="/api/v1/verify-email", status_code=302)
-            response.set_cookie(
-                key="access_token",
-                value=token,
-                httponly=True,
-                secure=True,
-                samesite="lax",
-                max_age=86400
-            )
-            print(response.headers)
-            return response
-
-
-
-
-
-
-
-
-        @self.router.api_route("/verify-email", methods=["GET", "POST"], response_class=HTMLResponse)
-        def verify_email_send(
-            request: Request,
-            access_token: str = Cookie(None), 
-            db: Session = Depends(get_db)
-        ):
-            if request.method == "GET":
-                return templates.TemplateResponse("verification_link.html", {"request": request})
-            
             try:
-                payload = decode_token(access_token)
-                email = payload.get("email")
-            except JWTError: return RedirectResponse(url="/api/v1/login")
+                # --- Validation: Password match ---
+                if password != confirm_password:
+                    return templates.TemplateResponse(
+                        "register.html",
+                        {
+                            "request": request,
+                            "error": "Passwords do not match",
+                            "fullname": fullname,
+                            "username": username,
+                            "email": email
+                        },
+                        status_code=400
+                    )
+
+                # --- Validation: Check for existing username or email ---
+                existing_user = db.execute(
+                    select(models.User).where(models.User.username == username)
+                ).scalar_one_or_none()
+                existing_email = db.execute(
+                    select(models.User).where(models.User.email == email)
+                ).scalar_one_or_none()
+
+                if existing_user:
+                    return templates.TemplateResponse(
+                        "register.html",
+                        {
+                            "request": request,
+                            "error": "Username already exists",
+                            "fullname": fullname,
+                            "email": email
+                        },
+                        status_code=400
+                    )
+                if existing_email:
+                    return templates.TemplateResponse(
+                        "register.html",
+                        {
+                            "request": request,
+                            "error": "Email already exists",
+                            "fullname": fullname,
+                            "username": username
+                        },
+                        status_code=400
+                    )
+                
+                while True:
+                    trans_token = utils.generate_secure_token()
+                    existing_token = db.execute(
+                        select(models.User).where(models.User.transaction_token == trans_token)
+                    ).scalar_one_or_none()
+                    if not existing_token:
+                        break
+                    
+
+                # --- Create new user ---
+                new_user = models.User(
+                    fullname=fullname,
+                    username=username,
+                    password=hash_password(password),
+                    email=email,
+                    transaction_token=trans_token
+                )
+
+                db.add(new_user)
+                db.commit()
+                db.refresh(new_user)
+
+                token = create_jwt_access_token({
+                    "transtoken": new_user.transaction_token,
+                    "email": new_user.email
+                })
+
+                response = RedirectResponse(url="/api/v1/verify-email", status_code=302)
+                response.set_cookie(
+                    key="access_token",
+                    value=token,
+                    httponly=True,
+                    secure=True,
+                    samesite="lax",
+                    max_age=86400
+                )
+
+                verify_token = utils.generate_secure_token()
+                token_exp = int(time.time()) + (24 * 3600)
+
+                verification = models.EmailVerifications(
+                    user_id=new_user.id,
+                    token=verify_token,
+                    token_exp=token_exp,
+                    is_used=False
+                )
+                db.add(verification)
+                db.commit()
+                verify_link = f"{request.base_url}api/v1/verify-email/{verify_token}"
+
+                subject, body = utils.EmailTemplate.verify_email_template(fullname=new_user.fullname,verify_link=verify_link)
+                utils.send_email(new_user.email, subject, body)
+                print("-"*50)
+                print(response.headers)
+                print("-"*50)
+
+                return response
             
-            user = db.execute(
-                select(models.User).where(models.User.email == email)
-            ).scalar_one_or_none()
+            except Exception as e:
+                db.rollback()
+                print("Registration Error: ", e)
+                return HTMLResponse(str(e), 400)
 
-            if not user:
-                raise HTTPException(status_code=404, detail="Email not found")
-            
-            token = utils.generate_secure_token()
-            token_exp = int(time.time()) + (24 * 3600)
 
-            verification = models.EmailVerifications(
-                user_id=user.id,
-                token=token,
-                token_exp=token_exp,
-                is_used=False
-            )
-            db.add(verification)
-            db.commit()
 
-            verify_link = f"http://localhost:8000/api/v1/verify-email/{token}"
 
-            subject, body = utils.EmailTemplate.verify_email_template(fullname=user.fullname,verify_link=verify_link)
-            utils.send_email(user.email, subject, body)
-            
-            return templates.TemplateResponse(
-                "verification_link.html",
-                {"request": request, "email": email}
-            )
+
+
+
+        @self.router.get("/verify-email", response_class=HTMLResponse)
+        def verify_email_send(request: Request):
+            return templates.TemplateResponse("verification_link.html", {"request": request})
 
         @self.router.get("/verify-email/{token}", response_class=HTMLResponse)
         def verify_email(
