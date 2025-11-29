@@ -11,6 +11,7 @@ import src.models as models
 import src.utils as utils
 from src.encryption import hash_password, verify_password
 from src.config import get_db
+from src.dependencies import get_current_user
 from src.auth import create_jwt_access_token, decode_token, JWTError
 
 templates = Jinja2Templates(directory="templates")
@@ -20,47 +21,41 @@ class APIV1:
         self.router = APIRouter(prefix="/api/v1")
     
         @self.router.get("/login", response_class=HTMLResponse)
-        def login_html(request: Request):
-            return templates.TemplateResponse("login.html", {"request": request})
+        def login_html(request: Request): return templates.TemplateResponse("login.html", {"request": request})
             
-        @self.router.post("/login", response_class=HTMLResponse)
-        def login(
-            request: Request,
-            username: str = Form(...),
-            password: str = Form(...),
-            db: Session = Depends(get_db)
-        ):
+        @self.router.post("/login")
+        def login(request: Request, username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
+
+            token = request.cookies.get("access_token")
+            if token:
+                try:
+                    payload = decode_token(token)
+                    transtoken = payload.get("transtoken")
+                    user = db.execute(
+                        select(models.User).where(models.User.transaction_token == transtoken)
+                    ).scalar_one_or_none()
+                    if user:
+                        return RedirectResponse(url="/api/v1/profile", status_code=303)
+                except JWTError: pass
             
             user = db.execute(
                 select(models.User).where(models.User.username == username)
             ).scalar_one_or_none()
+                        
+            if not user:
+                return templates.TemplateResponse("login.html", {"request": request, "error": "User not found"}, status_code=404)
+            
+            if not verify_password(password, user.password):
+                return templates.TemplateResponse("login.html", {"request": request, "error": "Incorrect password"}, status_code=401)
 
-            if not user or not verify_password(password, user.password):
-                return templates.TemplateResponse(
-                    "login.html",
-                    {
-                        "request": request,
-                        "error": "Invalid username or password"
-                    },
-                    status_code=401
-                )
             token = create_jwt_access_token({
-                "user_id": user.id,
-                "fullname": user.fullname,
-                "email": user.email,
-                "username": user.username,
-                "role": user.role
+                "transtoken": user.transaction_token,
+                "email": user.email
             })
 
             response = RedirectResponse(url="/api/v1/profile", status_code=303)
-            response.set_cookie(
-                key="access_token",
-                value=token,
-                httponly=True,
-                secure=True,
-                samesite="lax",
-                max_age=86400
-            )
+            response.set_cookie(key="access_token",value=token,httponly=True,secure=True,samesite="none",max_age=86400)
+            
             return response
 
         @self.router.get("/logout")
@@ -70,8 +65,7 @@ class APIV1:
             return response
 
         @self.router.get("/register", response_class=HTMLResponse)
-        def register_html(request: Request):
-            return templates.TemplateResponse("register.html", {"request": request})
+        def register_html(request: Request): return templates.TemplateResponse("register.html", {"request": request})
 
         @self.router.post("/register")
         def register(
@@ -84,11 +78,8 @@ class APIV1:
             db: Session = Depends(get_db)
         ):
             try:
-                # --- Validation: Password match ---
                 if password != confirm_password:
-                    return templates.TemplateResponse(
-                        "register.html",
-                        {
+                    return templates.TemplateResponse("register.html", {
                             "request": request,
                             "error": "Passwords do not match",
                             "fullname": fullname,
@@ -97,14 +88,8 @@ class APIV1:
                         },
                         status_code=400
                     )
-
-                # --- Validation: Check for existing username or email ---
-                existing_user = db.execute(
-                    select(models.User).where(models.User.username == username)
-                ).scalar_one_or_none()
-                existing_email = db.execute(
-                    select(models.User).where(models.User.email == email)
-                ).scalar_one_or_none()
+                existing_user = db.execute(select(models.User).where(models.User.username == username)).scalar_one_or_none()
+                existing_email = db.execute(select(models.User).where(models.User.email == email)).scalar_one_or_none()
 
                 if existing_user:
                     return templates.TemplateResponse(
@@ -131,14 +116,10 @@ class APIV1:
                 
                 while True:
                     trans_token = utils.generate_secure_token()
-                    existing_token = db.execute(
-                        select(models.User).where(models.User.transaction_token == trans_token)
-                    ).scalar_one_or_none()
-                    if not existing_token:
-                        break
+                    existing_token = db.execute(select(models.User).where(models.User.transaction_token == trans_token)).scalar_one_or_none()
+                    if not existing_token:break
                     
 
-                # --- Create new user ---
                 new_user = models.User(
                     fullname=fullname,
                     username=username,
@@ -146,7 +127,6 @@ class APIV1:
                     email=email,
                     transaction_token=trans_token
                 )
-
                 db.add(new_user)
                 db.commit()
                 db.refresh(new_user)
@@ -162,8 +142,8 @@ class APIV1:
                     value=token,
                     httponly=True,
                     secure=True,
-                    samesite="lax",
-                    max_age=86400
+                    samesite="none",
+                    max_age=2592000
                 )
 
                 verify_token = utils.generate_secure_token()
@@ -193,88 +173,47 @@ class APIV1:
                 return HTMLResponse(str(e), 400)
 
 
-
-
-
-
-
         @self.router.get("/verify-email", response_class=HTMLResponse)
-        def verify_email_send(request: Request):
-            return templates.TemplateResponse("verification_link.html", {"request": request})
+        def verify_email_send(request: Request): return templates.TemplateResponse("verification_link.html", {"request": request})
 
         @self.router.get("/verify-email/{token}", response_class=HTMLResponse)
-        def verify_email(
-            request: Request,
-            token: str, 
-            db: Session = Depends(get_db)
-        ):
-            email_verification = db.execute(
-                select(models.EmailVerifications)
-                .where(models.EmailVerifications.token == token)
-            ).scalar_one_or_none()
-            if not email_verification:
-                raise HTTPException(status_code=404, detail="Invalid verification token")
-            if email_verification.is_used:
-                raise HTTPException(status_code=400, detail="Token has already been used")
-            if utils.is_token_expired(email_verification.token_exp):
-                raise HTTPException(status_code=400, detail="Token has expired")
+        def verify_email(request: Request, token: str, db: Session = Depends(get_db)):
+
+            email_verification = db.execute(select(models.EmailVerifications).where(models.EmailVerifications.token == token)).scalar_one_or_none()
+            if not email_verification: raise HTTPException(status_code=404, detail="Invalid verification token")
+            if email_verification.is_used: raise HTTPException(status_code=400, detail="Token has already been used")
+            if utils.is_token_expired(email_verification.token_exp): raise HTTPException(status_code=400, detail="Token has expired")
             
-            user = db.execute(
-                select(models.User).where(models.User.id == email_verification.user_id)
-            ).scalar_one()
+            user = db.execute(select(models.User).where(models.User.id == email_verification.user_id)).scalar_one()
             user.verified = True
             email_verification.is_used = True
-            
             db.commit()
 
-            return templates.TemplateResponse(
-                "email_verified.html",
-                {"request": request, "email": user.email}
-            )
+            return templates.TemplateResponse("email_verified.html",{"request": request, "email": user.email})
         
-        # -----------------
         @self.router.post("/password-reset", response_class=HTMLResponse)
-        def reset_password_send(email: str, db: Session = Depends(get_db)):
-            user = db.execute(
-                select(models.User).where(models.User.email == email)
-            ).scalar_one_or_none()
+        def reset_password_send(request: Request, email: str, db: Session = Depends(get_db)):
+            user = db.execute(select(models.User).where(models.User.email == email)).scalar_one_or_none()
 
-            if not user:
-                raise HTTPException(status_code=404, detail="Email not found")
-
+            if not user: raise HTTPException(status_code=404, detail="Email not found")
             token = utils.generate_secure_token()
             token_exp = int(time.time()) + (24 * 3600)
-
-            reset_entry = models.PasswordReset(
-                user_id=user.id,
-                token=token,
-                token_exp=token_exp,
-                is_used=False
-            )
+            reset_entry = models.PasswordReset(user_id=user.id,token=token,token_exp=token_exp,is_used=False)
             db.add(reset_entry)
             db.commit()
-
-            reset_link = f"http://localhost:8000/api/v1/password-reset/{token}"
-
+            reset_link = f"{request.base_url}api/v1/verify-email/{token}"
             subject, body = utils.EmailTemplate.reset_password_template(reset_link)
             utils.send_email(user.email, subject, body)
 
             return HTMLResponse("<h3>Password reset link sent to your email.</h3>")
 
-
         @self.router.get("/password-reset/{token}", response_class=HTMLResponse)
         def reset_password_form(token: str, db: Session = Depends(get_db)):
-            record = db.execute(
-                select(models.PasswordReset)
-                .where(models.PasswordReset.token == token)
-            ).scalar_one_or_none()
+            record = db.execute(select(models.PasswordReset).where(models.PasswordReset.token == token)).scalar_one_or_none()
 
-            if not record:
-                raise HTTPException(status_code=404, detail="Invalid token")
-            if record.is_used:
-                raise HTTPException(status_code=400, detail="Token already used")
-            if utils.is_token_expired(record.token_exp):
-                raise HTTPException(status_code=400, detail="Token expired")
+            if not record:raise HTTPException(status_code=404, detail="Invalid token")
+            if record.is_used:raise HTTPException(status_code=400, detail="Token already used")
+            if utils.is_token_expired(record.token_exp):raise HTTPException(status_code=400, detail="Token expired")
             html = f"""
             <html>
                 <body>
@@ -294,62 +233,30 @@ class APIV1:
             return HTMLResponse(html)
 
         @self.router.post("/password-reset/{token}", response_class=HTMLResponse)
-        def reset_password_apply(
-            token: str,
-            password: str = Form(...),
-            confirm_password: str = Form(...),
-            db: Session = Depends(get_db)
-        ):
-            if password != confirm_password:
-                return HTMLResponse("<h3>Passwords do not match!</h3>", status_code=400)
-
-            record = db.execute(
-                select(models.PasswordReset)
-                .where(models.PasswordReset.token == token)
-            ).scalar_one_or_none()
-
-            if not record:
-                raise HTTPException(status_code=404, detail="Invalid token")
-
-            if record.is_used:
-                raise HTTPException(status_code=400, detail="Token already used")
-
-            if utils.is_token_expired(record.token_exp):
-                raise HTTPException(status_code=400, detail="Token expired")
-
-            user = db.execute(
-                select(models.User).where(models.User.id == record.user_id)
-            ).scalar_one()
-
+        def reset_password_apply(token: str,password: str = Form(...),confirm_password: str = Form(...),db: Session = Depends(get_db)):
+            
+            if password != confirm_password:return HTMLResponse("<h3>Passwords do not match!</h3>", status_code=400)
+            record = db.execute(select(models.PasswordReset).where(models.PasswordReset.token == token)).scalar_one_or_none()
+            if not record:raise HTTPException(status_code=404, detail="Invalid token")
+            if record.is_used:raise HTTPException(status_code=400, detail="Token already used")
+            if utils.is_token_expired(record.token_exp):raise HTTPException(status_code=400, detail="Token expired")
+            user = db.execute(select(models.User).where(models.User.id == record.user_id)).scalar_one()
             user.password = hash_password(password)
-
             record.is_used = True
             db.commit()
 
             return HTMLResponse("<h1>Password changed successfully!</h1>")
         
         @self.router.get("/profile", response_class=HTMLResponse)
-        def profile(request: Request, access_token: str = Cookie(None), db: Session = Depends(get_db)):
-
-            if not access_token: return RedirectResponse(url="/api/v1/login")
-            
-            try: 
-                payload = decode_token(access_token)
-                trans_token = payload.get("transtoken")
-                existing_token = db.execute(
-                    select(models.User).where(models.User.transaction_token == trans_token)
-                ).scalar_one_or_none()
-                if not existing_token: return RedirectResponse(url="/api/v1/logout")
-            except JWTError: return RedirectResponse(url="/api/v1/login")
-            
+        def profile(request: Request,current_user: models.User = Depends(get_current_user)):
             return templates.TemplateResponse(
-                "profile.html", 
+                "profile.html",
                 {
                     "request": request,
-                    "fullname": existing_token.fullname,
-                    "email": existing_token.email,
-                    "username": existing_token.username,
-                    "role": existing_token.role,
-                    "verified": existing_token.verified
+                    "fullname": current_user.fullname,
+                    "email": current_user.email,
+                    "username": current_user.username,
+                    "role": current_user.role,
+                    "verified": current_user.verified
                 }
             )

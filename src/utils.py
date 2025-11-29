@@ -190,3 +190,4 @@ class EmailTemplate:
 def is_token_expired(exp_timestamp: int):
     import time
     return time.time() > exp_timestamp
+
