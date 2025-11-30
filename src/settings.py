@@ -48,5 +48,5 @@ COOKIE_HTTPONLY = True
 # --- Application config ---
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")  # production, development
 DEBUG = ENVIRONMENT == "development"
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "userauth.vercel.app").split(",")
 
