@@ -75,10 +75,24 @@
             border-radius: 0.8rem;
             padding: 0.7rem 1.5rem;
             transition: 0.3s;
+            border: none;
         }
 
         .btn-edit:hover {
             background: #5911b0;
+        }
+
+        .btn-delete {
+            background: #dc3545;
+            color: #fff;
+            border-radius: 0.8rem;
+            padding: 0.7rem 1.5rem;
+            transition: 0.3s;
+            border: none;
+        }
+
+        .btn-delete:hover {
+            background: #c82333;
         }
     </style>
 </head>
@@ -98,24 +112,43 @@
         <div class="profile-info">
 
             <h5>Email</h5>
-            <p>{{ email }}</p>
+            <p>{{ email }} {% if verified %}<span class="badge bg-success">Verified</span>{% else %}<span class="badge bg-warning">Not Verified</span>{% endif %}</p>
 
 
             <h5>Username</h5>
             <p>{{ username }}</p>
 
             <h5>Role</h5>
-            <p>{{ role }}</p>
+            <p><span class="badge bg-primary">{{ role }}</span></p>
             
-            <h5>Verified</h5>
-            <p>{{ verified }}</p>
+            <h5>Account Status</h5>
+            <p>{{ "Active" if verified else "Pending Email Verification" }}</p>
+            
+            {% if last_login %}
+            <h5>Last Login</h5>
+            <p>{{ last_login }}</p>
+            {% endif %}
 
         </div>
 
-        <div class="text-center">
-            <button class="btn btn-edit">Edit Profile</button>
+        <div class="text-center mt-4">
+            <a href="/api/v1/logout" class="btn btn-danger me-2">Logout</a>
+            <button type="button" class="btn btn-delete" onclick="confirmDelete()">Delete Account</button>
         </div>
     </div>
+
+    <script>
+        function confirmDelete() {
+            if (confirm('Are you sure you want to delete your account? This action cannot be undone!')) {
+                // Create a form and submit
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/api/v1/delete-account';
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+    </script>
 
 </body>
 

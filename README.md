@@ -1,144 +1,343 @@
-# **User Authentication API (FastAPI + MySQL)**
+# 🔐 User Authentication System
 
-A complete authentication backend built with **FastAPI**, **MySQL**, **Argon2 password hashing**, **JWT authentication**, email verification, and password reset functionality.
-The project is structured cleanly using design patterns and follows production-level practices such as migrations and environment configuration.
+A comprehensive, production-ready authentication system built with FastAPI, featuring advanced security measures, email verification, password management, and audit logging.
 
-> ⚠️ **Note:** The project is still **under development**. Some features are not yet finalized.
-> Current version is suitable for local development and testing—not yet production-ready.
+## ✨ Features
 
----
+### Core Authentication
+- 🔑 **User Registration & Login** - Secure account creation with email verification
+- 📧 **Email Verification** - Token-based email confirmation system
+- 🔒 **Password Reset** - Secure password recovery via email
+- 👤 **User Profile Management** - View and manage account information
+- 🗑️ **Account Deletion** - Self-service account removal with confirmation
 
-## **Features**
+### Security Features
+- 🛡️ **Password Security**
+  - Argon2 & Bcrypt hashing
+  - Comprehensive strength validation (uppercase, lowercase, digits, special characters)
+  - Minimum 8 characters requirement
+  - Common password detection
 
-* Secure **User Registration** using Argon2 password hashing
-* **Login** using JWT access tokens
-* **Email Verification** (activation link sent to the user)
-* **Password Reset** (reset token + email link)
-* **MySQL database** with SQLAlchemy ORM
-* **Alembic migrations**
-* Clean modular structure (models, services, routers, utils)
-* CLI support through `run.py` using Click
-* Singleton database connection layer
+- 🔐 **Account Protection**
+  - Account lockout after 5 failed login attempts
+  - 15-minute automatic lockout duration
+  - JWT token-based authentication
+  - HTTP-only secure cookies
 
----
+- ⚡ **Rate Limiting**
+  - 60 requests per minute per IP
+  - 300 requests per hour per IP
+  - Automatic IP blocking for violations
+  - 5-minute cooldown for excessive requests
 
-## **Upcoming Features**
+- 🔒 **Security Headers**
+  - Content Security Policy (CSP)
+  - X-Frame-Options: DENY
+  - X-XSS-Protection
+  - Strict-Transport-Security (HSTS)
+  - X-Content-Type-Options: nosniff
 
-* OAuth2 login (Google, GitHub)
-* Refresh tokens
-* Roles & Permissions (RBAC)
-* 2FA (email/app based)
-* Device & session management
-* Rate limiting
+- 📊 **Audit Logging**
+  - Complete tracking of security events
+  - Login/logout tracking
+  - Password changes
+  - Account deletions
+  - IP address and user-agent logging
 
----
+## 🚀 Quick Start
 
-# **Installation & Setup**
+### Prerequisites
+- Python 3.8 or higher
+- MySQL or SQLite database
+- SMTP email account (Gmail recommended)
 
-## 1. Clone the repository
+### Installation
 
+1. **Clone the repository:**
 ```bash
-git clone https://github.com/oar06g/User-Authentication
 cd User-Authentication
 ```
 
----
-
-## 2. Create a virtual environment
-
+2. **Create virtual environment:**
 ```bash
-python -m venv .venv
-source .venv/bin/activate     # Linux/Mac
-.venv\Scripts\activate        # Windows
+python -m venv venv
 ```
 
----
+3. **Activate virtual environment:**
 
-## 3. Install dependencies
+Windows:
+```bash
+venv\Scripts\activate
+```
 
+Linux/Mac:
+```bash
+source venv/bin/activate
+```
+
+4. **Install dependencies:**
 ```bash
 pip install -r requirements.txt
 ```
 
----
+5. **Configure environment:**
+```bash
+copy .env.example .env
+```
 
-## 4. Create a `.env` file
+Edit `.env` with your configuration:
+```env
+SECRET_KEY_JWT=your-super-secret-key-here
+SENDER_EMAIL=your-email@gmail.com
+SENDER_PASSWORD=your-gmail-app-password
+ENVIRONMENT=development
+```
 
-Copy and fill the following values:
+6. **Run migrations:**
+```bash
+python -m alembic upgrade head
+```
+
+7. **Start the application:**
+```bash
+python UserAuthentication.py
+```
+
+8. **Access the application:**
+```
+http://localhost:8000/api/v1/login
+```
+
+## 📁 Project Structure
 
 ```
-# --- MySQL Database ---
-MYSQL_USER=your_mysql_user
-MYSQL_PASSWORD=your_mysql_password
+User-Authentication/
+├── src/
+│   ├── __init__.py          # Application initialization
+│   ├── api.py               # API routes and endpoints
+│   ├── auth.py              # JWT authentication
+│   ├── config.py            # Database configuration
+│   ├── dependencies.py      # Dependency injection & helpers
+│   ├── encryption.py        # Password hashing
+│   ├── exceptions.py        # Custom exception handlers
+│   ├── logger.py            # Logging configuration
+│   ├── middleware.py        # Security middleware
+│   ├── models.py            # Database models
+│   ├── schemas.py           # Pydantic schemas
+│   ├── settings.py          # Application settings
+│   ├── utils.py             # Utility functions
+│   └── validators.py        # Input validation
+├── templates/               # HTML templates
+├── migrations/              # Alembic database migrations
+├── test/                    # Unit tests
+├── logs/                    # Application logs
+├── requirements.txt         # Python dependencies
+└── UserAuthentication.py    # Application entry point
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+
+```env
+# JWT Secret (Required - Change in production!)
+SECRET_KEY_JWT=your-secret-key
+
+# Email Configuration
+SENDER_EMAIL=your-email@gmail.com
+SENDER_PASSWORD=your-app-password
+
+# Database (Optional - defaults to SQLite)
+MYSQL_USER=root
+MYSQL_PASSWORD=password
 MYSQL_HOST=localhost
 MYSQL_PORT=3306
-MYSQL_DB_USER_AUTHDB=user_auth_db
+MYSQL_DB_USER_AUTHDB=auth_db
 
-# --- Email Sending Configuration ---
-SENDER_EMAIL=example@gmail.com
-SENDER_PASSWORD=app_password_here
+# Application
+ENVIRONMENT=development  # or production
+COOKIE_SECURE=False      # Set True in production with HTTPS
 ```
 
-> ⚠️ For Gmail users: You must use an **App Password**, not your real email password.
-[Get App Password](https://myaccount.google.com/apppasswords)
+### Gmail App Password Setup
 
----
+1. Enable 2-Factor Authentication in your Google Account
+2. Go to Security → App passwords
+3. Generate password for "Mail"
+4. Use generated password in `.env` file
 
-## 5. Run migrations
+## 🛣️ API Endpoints
 
+### Public Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/login` | Login page |
+| POST | `/api/v1/login` | Authenticate user |
+| GET | `/api/v1/register` | Registration page |
+| POST | `/api/v1/register` | Create new account |
+| GET | `/api/v1/logout` | Logout user |
+| GET | `/api/v1/password-reset` | Password reset request page |
+| POST | `/api/v1/password-reset` | Request password reset |
+| GET | `/api/v1/password-reset/{token}` | Password reset form |
+| POST | `/api/v1/password-reset/{token}` | Submit new password |
+| GET | `/api/v1/verify-email/{token}` | Verify email address |
+
+### Protected Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/profile` | User profile page |
+| POST | `/api/v1/delete-account` | Delete user account |
+
+## 🧪 Testing
+
+Run the test suite:
 ```bash
-python run.py setup
+pytest test/test_auth.py -v
 ```
 
----
-
-# **Running the Project**
-
-You provided a `run.py` that uses Click CLI commands.
-Here’s how to use it:
-
-### **Run development server**
-
+Run with coverage:
 ```bash
-python run.py runserver
+pytest test/test_auth.py --cov=src --cov-report=html
 ```
 
-### **Run setup / migrations**
+## 📊 Database
 
-Update database only:
+### SQLite (Default)
+The system uses SQLite by default. Database file: `db_user_auth.db`
 
+### MySQL (Production)
+Update `src/settings.py`:
+```python
+DB_URL = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB_USER_AUTHDB}"
+```
+
+### Database Models
+
+- **Users** - User accounts and credentials
+- **EmailVerifications** - Email verification tokens
+- **PasswordReset** - Password reset tokens
+- **AuditLog** - Security event tracking
+
+## 📝 Logging
+
+Logs are stored in the `logs/` directory:
+
+- `app.log` - General application logs
+- `error.log` - Error logs only
+- `security.log` - Security audit trail
+
+## 🔒 Security Best Practices
+
+### Implemented
+✅ No user enumeration (same error messages)  
+✅ Password hashing with Argon2/Bcrypt  
+✅ JWT with secure cookies  
+✅ Account lockout protection  
+✅ Rate limiting  
+✅ Security headers  
+✅ Input validation  
+✅ CSRF protection (available)  
+✅ Audit logging  
+✅ Token expiration  
+
+### Production Deployment
+
+1. **Set production environment:**
+```env
+ENVIRONMENT=production
+COOKIE_SECURE=True
+```
+
+2. **Use strong secret key:**
 ```bash
-python run.py setup
+python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-Full database initialization (fresh setup):
+3. **Enable HTTPS/SSL**
 
+4. **Use production database (MySQL/PostgreSQL)**
+
+5. **Deploy with Gunicorn:**
 ```bash
-python run.py setup --fullsetup
+pip install gunicorn
+gunicorn -w 4 -k uvicorn.workers.UvicornWorker src:create_app
 ```
 
+6. **Set up reverse proxy (Nginx)**
+
+7. **Configure firewall**
+
+8. **Set up automated backups**
+
+## 🐛 Troubleshooting
+
+### Database Issues
+```bash
+# Reset migrations
+python -m alembic downgrade base
+python -m alembic upgrade head
+```
+
+### Email Not Sending
+- Verify Gmail App Password is correct
+- Check 2FA is enabled
+- Ensure `SENDER_EMAIL` and `SENDER_PASSWORD` are set
+
+### Port Already in Use
+Change port in `src/__init__.py`:
+```python
+uvicorn.run(app, host="0.0.0.0", port=8001)
+```
+
+## 📈 Performance
+
+- Efficient database connection pooling
+- In-memory rate limiting
+- Rotating log files
+- Optimized queries
+- Middleware ordering for performance
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit changes (`git commit -m 'Add AmazingFeature'`)
+4. Push to branch (`git push origin feature/AmazingFeature`)
+5. Open Pull Request
+
+## 📄 License
+
+This project is open source and available under the MIT License.
+
+## 🙏 Acknowledgments
+
+Built with:
+- [FastAPI](https://fastapi.tiangolo.com/) - Modern web framework
+- [SQLAlchemy](https://www.sqlalchemy.org/) - Database ORM
+- [Alembic](https://alembic.sqlalchemy.org/) - Database migrations
+- [Passlib](https://passlib.readthedocs.io/) - Password hashing
+- [Python-JOSE](https://python-jose.readthedocs.io/) - JWT implementation
+
+## 📞 Support
+
+For issues or questions:
+- Check the logs in `logs/` directory
+- Review security logs for authentication issues
+- Verify environment configuration
+
+## 🎯 Future Enhancements
+
+- [ ] Multi-Factor Authentication (2FA/MFA)
+- [ ] OAuth2 Social Login (Google, Facebook, GitHub)
+- [ ] Enhanced Role-Based Access Control (RBAC)
+- [ ] Refresh Token implementation
+- [ ] API rate limiting per user
+- [ ] Advanced password policies
+- [ ] Session management
+- [ ] Device tracking
+
 ---
 
-## API Documentation
-
-After running the server, open:
-
-* Swagger UI → [http://localhost:8000/docs](http://localhost:8000/docs)
-* ReDoc → [http://localhost:8000/redoc](http://localhost:8000/redoc)
-
----
-
-## Contributions
-
-All contributions, feature suggestions, and improvements are welcome.
-
----
-
-## License
-
-MIT License
-
-
-<div align=center>
-    <h1>Good Luck :)</h1>
-</div>
+**Built with ❤️ using FastAPI**
