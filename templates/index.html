@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome | User Authentication</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background: #f5f7fa;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .hero {
+      padding: 80px 0;
+      text-align: center;
+    }
+    .hero h1 {
+      font-size: 3rem;
+      font-weight: 700;
+      color: #333;
+    }
+    .hero p {
+      font-size: 1.2rem;
+      color: #555;
+      max-width: 600px;
+      margin: 20px auto;
+    }
+    .btn-main {
+      padding: 12px 25px;
+      font-size: 1.1rem;
+    }
+    .features {
+      margin-top: 60px;
+    }
+    .feature-box {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm py-3">
+    <div class="container">
+      <a class="navbar-brand fw-bold fs-4" href="#">User Authentication</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navMenu">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="/api/v1/login">Login</a></li>
+          <li class="nav-item"><a class="btn btn-primary ms-2" href="/api/v1/register">Register</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <section class="hero container">
+    <h1>Welcome to the User Authentication System</h1>
+    <p>An advanced and secure registration system designed to verify, protect, and manage user identities with ease. Join us and start exploring the powerful features we offer.</p>
+    <a href="/api/v1/register" class="btn btn-primary btn-main mt-3">Get Started</a>
+  </section>
+
+  <section class="features container mb-5">
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="feature-box text-center">
+          <h4 class="fw-bold">Fast & Secure</h4>
+          <p>We prioritize user data protection with advanced security protocols.</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="feature-box text-center">
+          <h4 class="fw-bold">Easy to Use</h4>
+          <p>Our platform is designed with simplicity and efficiency in mind.</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="feature-box text-center">
+          <h4 class="fw-bold">Always Improving</h4>
+          <p>We constantly enhance features for the best user experience.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

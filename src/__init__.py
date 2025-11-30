@@ -1,6 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from src.api import APIV1
+from src.api import APIV1, templates
 from src.middleware import SecurityHeadersMiddleware, RateLimitMiddleware, CSRFMiddleware
 from src.exceptions import (
     AuthenticationError, ValidationError, RateLimitError,
@@ -42,6 +43,10 @@ def create_app() -> FastAPI:
     app.add_exception_handler(RateLimitError, rate_limit_error_handler)
     app.add_exception_handler(Exception, general_exception_handler)
     
+    # index route
+    @app.get("/", response_class=HTMLResponse)
+    def index(request: Request): return templates.TemplateResponse("index.html", {"request": request})
+
     # Include routers
     app.include_router(APIV1().router)
     
