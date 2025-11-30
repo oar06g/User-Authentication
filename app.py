@@ -4,6 +4,6 @@
 # Setup database and migrations
 # scripts.migrate.setup()
 
-if __name__ == "__main__":
-    from src import run
-    run()
+
+from src import run
+run()
